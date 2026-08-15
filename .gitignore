@@ -1,0 +1,25 @@
+# 敏感文件白名单（一律不上传）
+# 密钥
+~/.workbuddy/secrets/
+~/.zshrc
+*.key
+*.pem
+# 浏览器数据 / cookie
+browser_data/
+*.cookie
+*_user_data_dir/
+# 采集数据 / 逐字稿 / 账本
+data/
+*.jsonl
+*.txt
+!workbench/*.txt
+seen-ledger.json
+口播雷达入库_*.md
+雷达inbox_*.json
+爆款口播候选清单_*.md
+待人工确认_*.md
+# 临时 / 日志
+*.log
+__pycache__/
+.DS_Store
+*.pyc
