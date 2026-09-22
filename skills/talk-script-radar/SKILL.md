@@ -1,13 +1,13 @@
 ---
 name: talk-script-radar
-version: "1.7.2"
+version: "1.7.3"
 description: "爆款口播雷达 1.7：先杀再转。build_list 默认 ≥5000 赞 + 标题排除词 + 账本去重，只转幸存者。入库回写账本 ingested/excluded，并排出待出 RS 队列。触发：雷达、每日口播、定向收集、过完了。"
 agent_created: true
 ---
 
 # 爆款口播雷达
 
-> 版本：1.7.2 ｜ 更新记录见 [CHANGELOG.md](CHANGELOG.md)
+> 版本：1.7.3 ｜ 更新记录见 [CHANGELOG.md](CHANGELOG.md)
 > 首次发布：2026-08-13
 
 把「被市场验证过的口播视频」找出来，**变成写稿能抽的料**。贵步骤（下载+ASR）必须排在便宜判断之后。

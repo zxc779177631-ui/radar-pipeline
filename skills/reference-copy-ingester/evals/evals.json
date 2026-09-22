@@ -1,0 +1,39 @@
+{
+  "skill_name": "reference-copy-ingester",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "提炼 RS046 这条“服装老板做内容一定要给顾客一个到店理由”。",
+      "expected_output": "首句机制写成“人群+任务+必须结果”，随后否定错误动作、用失败观察回扣经营目的；不得误标成强数字、警告或时效钩子。",
+      "files": [],
+      "expectations": [
+        "准确记录首句动作",
+        "记录受众识别与未闭合问题",
+        "定位老店/新店分类和三步清单的兑现节点",
+        "区分流量机制与真实表现"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "这条参考文案是我人工挑出来的，但没有后台数据。请入 RS。",
+      "expected_output": "curation_status=curated，performance_status=unknown；只形成值得测试的流量机制，不写成已验证爆款。",
+      "files": [],
+      "expectations": [
+        "curated 不等于 verified",
+        "表现证据为空时不虚构数据",
+        "流量机制签名完整"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "把这个参考开头抽成“某某人做某事一定要……”的万能模板。",
+      "expected_output": "拒绝只保留句式槽位；同时记录注意力债务、失败观察、正文兑现、证据门槛和失效条件。",
+      "files": [],
+      "expectations": [
+        "没有把 RS 降为填空句式",
+        "保留完整功能顺序",
+        "说明目标正文必须具备的证据"
+      ]
+    }
+  ]
+}

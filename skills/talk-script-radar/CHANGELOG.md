@@ -2,6 +2,12 @@
 
 > 每次修改必须：更新本文件 + 提升 SKILL.md 的 version。
 
+## [1.7.3] 2026-09-22 · 跨机搬运：联动 skill 一并打包
+
+- `references/cross-machine.md` 补齐**完整联动清单**：主线 5 个（talk-script-radar / video-to-text / reference-copy-ingester / media-crawler / xiaohongshu-video-to-text）+ 上游发现 4 个（business-hotspot-radar / trending-hub / trending-hub-top10 / douyin-daily-hot）
+- 新增 **Windows 部署注意**：Git Bash/WSL、`OBSIDIAN` 常量改路径、`date -v-1d` → `date -d "1 day ago"`、Playwright chromium、winget 装 ffmpeg/uv、LF 换行
+- 配套仓库 `radar-pipeline` 收录全部 9 个 skill，`setup.sh` 改为跨平台一键部署
+
 ## [1.7.2] 2026-09-22 · 分叉合并 + GitHub 备份补齐
 
 三份副本此前**双向分叉**，本版合并为单线，并把 GitHub 备份从 8-15 的 1.6.0 快照补到当前：

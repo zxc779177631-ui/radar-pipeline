@@ -1,0 +1,6 @@
+interface:
+  display_name: "参考文案演绎提炼"
+  short_description: "逐篇保留真实注意力机制、兑现节点与迁移证据门槛"
+  default_prompt: "Use $reference-copy-ingester to preserve each reference copy's real attention mechanism, unresolved gap, payoff node, evidence rhythm, and transfer limits."
+policy:
+  allow_implicit_invocation: true
