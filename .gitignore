@@ -18,6 +18,9 @@ seen-ledger.json
 雷达inbox_*.json
 爆款口播候选清单_*.md
 待人工确认_*.md
+# 单次运行的筛选队列（属于数据，不属于代码）
+filter_*.json
+*/scripts/filter_*.json
 # 临时 / 日志
 *.log
 __pycache__/

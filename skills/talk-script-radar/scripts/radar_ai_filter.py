@@ -4,9 +4,10 @@
 口播雷达 · AI 预筛（人工过眼 → AI 预筛升级版）
 规则（2026-08-14 用户确认）：
   1. reject（不入库）：无口播（混剪/跳舞/卡点/BGM/翻唱等）、重策划访谈（访谈/专访/对谈/对话节目）
-  2. review（交人工）：字数特别短(<150)或特别长(>2500)，可能转写不全或重策划
+  2. review（交人工）：字数特别短(<150)或特别长(>4000)，可能转写不全或重策划
   3. ingest（直接入库）：其余（有连续口播、数据正常）
-用法：python3 radar_ai_filter.py <清单md> <输出json>
+标题排除词应已在 build_list 杀掉；本脚本是第二道闸，只拦漏网。
+用法：python3 radar_ai_filter.py <清单md> <输出json> [--platform douyin|xhs]
 """
 import json
 import os
@@ -35,9 +36,12 @@ TALK_HINTS = (
     "黄金", "秘诀", "陷阱", "贷款", "估值", "口播", "赚钱", "生意",
 )
 
-MIN_OK = 150      # 少于=review（可能转写不全/碎片）
-MAX_OK = 4000     # 多于=review（可能重策划访谈/超长口播，交人工确认）
 MIN_LIKES = 5000  # 赞数门槛（用户 2026-08-14 定：抖音 ≥5000 才入库，小红书 ≥1000）
+MIN_OK = 150    # 低于此字数 → review（可能转写不全/碎片）
+MAX_OK = 4000   # 高于此字数 → review（可能重策划访谈）
+
+# 抖音默认门槛；XHS 走 --platform xhs 时降到 1000
+PLATFORM_MIN_LIKES = {"douyin": 5000, "xhs": 1000}
 
 
 def read_transcript(video_id):
@@ -49,13 +53,13 @@ def read_transcript(video_id):
     return body.strip()
 
 
-def classify(title, body_len, body_text, liked=0):
+def classify(title, body_len, body_text, liked=0, min_likes=5000):
     """返回 (action, reason)。action: ingest | review | reject"""
     title = title or ""
     body = body_text or ""
     # 0. 赞数门槛：低于门槛直接剔除（未被市场验证，不算「爆款口播」）
-    if liked < MIN_LIKES:
-        return "reject", f"仅{liked:,}赞，低于门槛{MIN_LIKES:,}（未验证）"
+    if liked < min_likes:
+        return "reject", f"仅{liked:,}赞，低于门槛{min_likes:,}（未验证）"
     # 1. 标题特征强命中 → reject（混剪/跳舞/重策划访谈，标题都会有明确字样）
     hit_nt = [w for w in NONTALK_TITLE_HINTS if w in title]
     if hit_nt:
@@ -73,26 +77,39 @@ def classify(title, body_len, body_text, liked=0):
 
 
 def parse_list(md_path):
-    """解析候选清单 md，提取 (id, title, url, liked, keyword)"""
+    """解析候选清单 md，提取 (id, title, url, liked, keyword, author)"""
     items = []
     cur = None
     for line in open(md_path, encoding="utf-8"):
         m = re.match(r"^\*\*(\d+)\.\*\*\s*\[(.+?)\]\((https://www\.douyin\.com/video/(\d+))\)", line)
         if m:
             cur = {"title": m.group(2), "url": m.group(3), "id": m.group(4),
-                   "liked": 0, "keyword": ""}
+                   "liked": 0, "keyword": "", "author": ""}
             items.append(cur)
             continue
-        m2 = re.match(r"\s*👍([\d,]+).*?· #(\S+)", line)
+        m = re.match(r"^\*\*(\d+)\.\*\*\s*\[(.+?)\]\((https://www\.xiaohongshu\.com/explore/(\w+))", line)
+        if m:
+            cur = {"title": m.group(2), "url": m.group(3), "id": m.group(4),
+                   "liked": 0, "keyword": "", "author": ""}
+            items.append(cur)
+            continue
+        m2 = re.match(r"\s*👍([\d,]+).*?· @([^\s·]+).*?· #(\S+)", line)
         if m2 and cur:
             cur["liked"] = int(m2.group(1).replace(",", ""))
-            cur["keyword"] = m2.group(2)
+            cur["author"] = m2.group(2)
+            cur["keyword"] = m2.group(3)
     return items
 
 
 def main():
     md_path = sys.argv[1]
     out_path = sys.argv[2] if len(sys.argv) > 2 else "radar_ai_filter.json"
+    platform = "douyin"
+    if "--platform" in sys.argv:
+        _fi = sys.argv.index("--platform")
+        if _fi + 1 < len(sys.argv):
+            platform = sys.argv[_fi + 1]
+    min_likes = PLATFORM_MIN_LIKES.get(platform, MIN_LIKES)
     items = parse_list(md_path)
     result = {"ingest": [], "review": [], "reject": [], "missing": []}
     for it in items:
@@ -102,7 +119,7 @@ def main():
             result["missing"].append(it)
             continue
         it["body_len"] = len(body)
-        act, reason = classify(it["title"], it["body_len"], body, it.get("liked", 0))
+        act, reason = classify(it["title"], it["body_len"], body, it.get("liked", 0), min_likes)
         it["action"] = act
         it["reason"] = reason
         it["body_snippet"] = body[:120].replace("\n", " ")
@@ -112,7 +129,7 @@ def main():
         result[k].sort(key=lambda x: x.get("liked", 0), reverse=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
-    print(f"=== {os.path.basename(md_path)} ===")
+    print(f"=== {os.path.basename(md_path)} (platform={platform}, min_likes={min_likes}) ===")
     print(f"直接入库: {len(result['ingest'])} | 交人工: {len(result['review'])} | 剔除: {len(result['reject'])} | 无稿: {len(result['missing'])}")
     print("\n-- 剔除（reject）--")
     for it in result["reject"][:15]:

@@ -50,24 +50,23 @@ bash setup.sh
 ## 工作流（一条龙）
 
 ```bash
-# 1. 采集（collect 场景，不过时间）
-cd ~/MediaCrawler && .venv/bin/python main.py --platform dy --lt qrcode --type search \
-  --keywords "词1,词2,词3" --crawler_max_notes_count 30 --get_comment true \
-  --headless false --save_data_option jsonl
+# 1. 采集（collect 默认关评论）
+GET_COMMENT=false bash ~/.workbuddy/skills/talk-script-radar/scripts/crawl_douyin.sh collect "词1,词2,词3"
 
-# 2. 生成候选清单（赞数门槛：抖音 5000）
+# 2. 生成候选清单（--min-likes 默认 5000，标题排除词已杀）
 python ~/.workbuddy/skills/talk-script-radar/scripts/build_list.py \
-  --mode collect --min-likes 5000 --out "爆款口播候选清单_主题_$(date +%F).md"
+  --mode collect --out "爆款口播候选清单_主题_$(date +%F).md"
 
-# 3. 批量云端转写
-grep -o 'https://www.douyin.com/video/[0-9]*' "爆款口播候选清单_主题_$(date +%F).md" | sort -u > urls.txt
+# 3. 只转清单幸存者
+grep -oE 'https://www.douyin.com/video/[0-9]+' "爆款口播候选清单_主题_$(date +%F).md" | sort -u > urls.txt
 bash ~/.workbuddy/skills/video-to-text/scripts/transcribe.sh urls.txt 5
 
-# 4. AI 预筛（ingest/review/reject）
+# 4. 规则预筛（ingest/review/reject）
 python ~/.workbuddy/skills/talk-script-radar/scripts/radar_ai_filter.py "爆款口播候选清单_主题_$(date +%F).md" filter.json
 
-# 5. 入库 + 工作台同步
+# 5. 入库（搬文件 + 回写账本 + 待出 RS 队列）
 python ~/.workbuddy/skills/talk-script-radar/scripts/radar_ai_ingest.py filter.json 同城
+# 然后按 待出RS卡_*.md 跑 reference-copy-ingester
 python ~/.workbuddy/skills/talk-script-radar/scripts/radar_sync_workbench.py "爆款口播候选清单_主题_$(date +%F).md" filter.json 同城 wb_sync.json
 ```
 
@@ -82,7 +81,7 @@ python ~/.workbuddy/skills/talk-script-radar/scripts/radar_sync_workbench.py "�
 
 ## 版本
 
-- `talk-script-radar` 1.6.0（2026-08-15）
+- `talk-script-radar` 1.7.0（2026-08-15，先杀再转 + 入库回写账本）
 - `video-to-text` 1.0.0（2026-08-15，独立于原作者 douyin-video-to-text）
 
 ## 已知依赖

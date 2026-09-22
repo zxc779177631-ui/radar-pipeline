@@ -2,6 +2,15 @@
 
 > 每次修改必须：更新本文件 + 提升 SKILL.md 的 version。
 
+## [1.7.0] 2026-08-15 · 第一性收口：先杀再转 + 入库回写账本
+
+- `build_list.py --min-likes` 默认改为 **5000**（传 0 才关闭），低赞不再靠人记得加参数
+- 标题排除词前移到清单层：跳舞/访谈/数字人等进 `assets/default-tags.yaml`，转写只跑幸存者
+- `radar_ai_ingest.py` 一次做完：搬 md + 账本 `ingested` + reject 标 `excluded` + 写出 `待出RS卡_{主题}_{日期}.md`
+- collect 默认关评论（`GET_COMMENT=false`）；daily 仍默认可开
+- 诚实边界：所谓 AI 预筛只看标题+字数；`reference-copy-ingester` 没有批量脚本，入库后必须按队列由 agent 出 RS 卡
+- 真源只留账本 + 库里的稿。只搬文件不算入库完成
+
 ## [1.6.0] 2026-08-15 · 复盘迭代：工作台同步脚本 + 铁律落地到 SKILL.md
 
 - §2 铁律新增「不入低赞数据」条目（赞数门槛从 CHANGELOG 提升为 SKILL.md 正文铁律）

@@ -4,7 +4,7 @@
 
 ## 必须有
 
-1. WorkBuddy + `talk-script-radar` 1.6 + `video-to-text`（纯云端 ASR）+ `reference-copy-ingester`
+1. WorkBuddy + `talk-script-radar` 1.7 + `video-to-text`（纯云端 ASR）+ `reference-copy-ingester`
 2. `~/MediaCrawler`（`.venv` 就绪）。抖音要在这台扫一次码，cookie 在该目录
 3. `video-to-text`：纯云端 ASR（`V2T_TRANSCRIBER=api` + `~/.workbuddy/secrets/siliconflow`）。本地 whisper 已废弃（模型已删，别装回）。SiliconFlow key 失效就报错让用户检查云端
 4. Obsidian 库。macOS 默认  

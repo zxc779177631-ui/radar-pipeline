@@ -1,27 +1,29 @@
 ---
 name: talk-script-radar
-version: "1.6.0"
-description: "爆款口播雷达 1.5：daily/collect 找已被市场验证的口播视频。**赞数门槛（铁律）：抖音≥5000 才入库、小红书≥1000**，build_list --min-likes 源头拦截 + AI 预筛二次拦截。抓完账本去重→只转新片→AI 预筛（ingest/review/reject）→大部分直接入库、拿不准列清单交用户。触发：雷达、每日口播、定向收集、过完了。"
+version: "1.7.0"
+description: "爆款口播雷达 1.7：先杀再转。build_list 默认 ≥5000 赞 + 标题排除词 + 账本去重，只转幸存者。入库回写账本 ingested/excluded，并排出待出 RS 队列。触发：雷达、每日口播、定向收集、过完了。"
 agent_created: true
 ---
 
 # 爆款口播雷达
 
-> 版本：1.6.0 ｜ 更新记录见 [CHANGELOG.md](CHANGELOG.md)
+> 版本：1.7.0 ｜ 更新记录见 [CHANGELOG.md](CHANGELOG.md)
 > 首次发布：2026-08-13
 
-把「被市场验证过的口播视频」找出来，**送到能审稿**。人只过已转写、且够长的稿。
+把「被市场验证过的口播视频」找出来，**变成写稿能抽的料**。贵步骤（下载+ASR）必须排在便宜判断之后。
 
 ## 0. 第一性
 
 **输入**：场景（daily / collect）+ 领域种子或关键词  
-**机器输出**：账本过滤后的新片 + 逐字稿 inbox  
-**人输出**：过眼有效 / 无效 / 非口播  
-**机器收尾**（用户说「过完了」「入库」）：搬进 `【03.参考资料】/文案参考/{主题}/` + 跑 `reference-copy-ingester`
+**机器输出**：清单层已杀过的新片 + 幸存者逐字稿  
+**人输出**：只过超长/超短拿不准的稿  
+**机器收尾**：搬进 `【03.参考资料】/文案参考/{主题}/` + 回写账本 + 排出待出 RS 队列，再跑 `reference-copy-ingester`
+
+真源只留两份：**账本（见过没有）+ 库里的稿（能不能抽）**。工作台 / 备份 JSON 不是脊柱。
 
 不是热点监控，不是选题匹配器，不是自动成稿。
 
-人审闸门锁死：**只过已转写、且 ≥150 字的稿。** 只看标题没有意义。
+人审闸门：**只过已转写、且字数出界的稿。** 标题排除词在转写前就杀掉。
 
 ## 1. 两种场景
 
@@ -35,7 +37,7 @@ agent_created: true
 ## 2. 不要做的事（铁律）
 
 - **不做关联度排序 / 客户 IP 匹配。**
-- **不替人判有效。** 不自动入库、不在过眼前跑 ingest。
+- **不替人判「好不好写」。** 标题废片/低赞可自动杀；字数出界必须交人。大批量默认走规则预筛入库，不要再让人逐条过眼。
 - **不宣称低粉爆款。** 无粉丝字段；只写「中小热度」。
 - **不依赖 agent-reach** 才能跑发现层。
 - **不碰配音、字幕、剪辑、分发、视频号。**
@@ -43,7 +45,8 @@ agent_created: true
 - **不做全文错别字校对。** 入库前只允许轻量可读修补（分段/明显同音错）；专有名词不瞎改。
 - **不拆两台各干一半。** 生产机必须能爬、能转、能写账本。另一台只打开已带稿的 inbox/工作台过眼。
 - **不上传 cookie、逐字稿、客户稿到 GitHub。**
-- **不入低赞数据（赞数门槛铁律）。** 抖音 <5000 赞、小红书 <1000 赞 = 未被市场验证，**不入库、不交人工确认**。双层拦截：`build_list.py --min-likes`（源头）+ `radar_ai_filter.py MIN_LIKES`（预筛层）。曾因漏门槛把 4 赞/22 赞入库被用户打回（2026-08-14）。
+- **不入低赞数据（赞数门槛铁律）。** 抖音 <5000 赞、小红书 <1000 赞 = 未被市场验证，**不进清单、不转写、不入库**。`build_list.py --min-likes` 默认 5000（源头）；`radar_ai_filter.py MIN_LIKES` 是漏网补刀。
+- **不先转后杀。** 跳舞/访谈/数字人等标题排除词必须在 `build_list` 杀掉，转写只跑清单幸存者。
 
 ## 3. 工作流
 
@@ -52,18 +55,17 @@ agent_created: true
 ```text
 发现层 WebSearch
     → MediaCrawler 抖音
-    → build_list.py --mode daily   # 当天去重 + 账本已见剔除 + 排除词 + ≤90 天
-    → 只转账本里没有的新片
-    → merge_inbox.py               # 只把 ≥150 字的稿放进「请过眼」
-    → 告诉用户：请过眼 N 条已转写稿
+    → build_list.py --mode daily   # 默认 ≥5000 赞 + 标题排除 + 账本已见 + ≤90 天
+    → 只转清单幸存者（禁止对排除词/低赞片花钱下载）
+    → 规则预筛：正常稿入库+回写账本；超长超短交人
 ```
 
 清单可以写，但**不得把「只有链接、还没转写」当交付。** cookie 失效要扫码：先停，不要假装转写成功。
 
 ### 3.2 collect
 
-给定关键词（或默认种子）→ 大量抓、不过时间 → 同一套账本去重 → 转新片 → inbox。  
-老片可以进清单；入不入库仍看逐字稿。
+给定关键词（或默认种子）→ 大量抓、不过时间 → `build_list`（默认 5000 赞 + 排除词 + 账本）→ **只转幸存者** → 规则预筛入库。  
+collect 默认关评论（`GET_COMMENT=false`）；daily 默认可开。老片可以进清单；入不入库仍看逐字稿。
 
 ### 3.3 过眼（人）
 
@@ -79,14 +81,15 @@ agent_created: true
 
 用户说「过完了 / 入库 / ingest」，或 collect 大批量时**用户授权 AI 预筛**：
 
-**A. AI 预筛入库（2026-08-14 用户确认的默认流程，大批量首选）**
+**A. 规则预筛入库（大批量默认；名称仍叫 radar_ai_*，实际只看标题+字数，不读正文）**
 - 脚本：`python scripts/radar_ai_filter.py <清单md> <out.json>` → 分类 `ingest / review / reject / missing`
 - 规则（调优后）：
-  - `reject`：标题含无口播特征词（跳舞/变装/BGM/翻唱/街拍/舞蹈/特效/快闪/广场舞/手势舞/魔术/穿搭展示/健身操/舞蹈教学）+ 重策划访谈词（访谈/专访/对谈/对话/做客/夜话/面对面/圆桌/论坛）
-  - `review`：字数 <150（转写不全/碎片）或 >4000（可能重策划访谈/深度长稿），列清单交用户
+  - `reject`：标题漏网的无口播/访谈词（正路应已在 `build_list` 杀掉）
+  - `review`：字数 <150 或 >4000，列清单交用户
   - `ingest`：其余直接入库
-- **调优教训**：①vlog ≠ 无口播，靠字数兜底；②「卡点」「跟练」会误伤口播干货（AI 知识库教程），已删；③问答密度检测误伤人间观察/探店（路人对话≠重策划访谈），放弃改靠标题；④财经深度口播普遍 2500-8000 字，阈值用 4000
-- 入库：`python scripts/radar_ai_ingest.py <filter.json> <主题目录>` 直接搬 Obsidian（frontmatter 标 `curation_status: ai_reviewed_valid`）
+- **调优教训**：①vlog ≠ 无口播，靠字数兜底；②「卡点」「跟练」会误伤口播干货，已删；③问答密度检测误伤人间观察/探店，放弃改靠标题；④财经深度口播普遍 2500-8000 字，阈值用 4000
+- 入库：`python scripts/radar_ai_ingest.py <filter.json> <主题目录>` **一次做完**：搬 Obsidian + 账本标 `ingested` + reject 标 `excluded` + 写出 `【03】/文案参考/雷达清单/待出RS卡_{主题}_{日期}.md`
+- **必须接着跑 `reference-copy-ingester`**（该 skill 没有批量脚本，agent 按队列逐篇出 RS 卡）。只搬 md 不算入库完成。
 - review 清单归档工作区 `待人工确认_{主题}.md` 交用户扫一遍
 - **工作台状态同步（2026-08-14 新增）：** `python scripts/radar_sync_workbench.py <清单md> <filter.json> <主题> <out.json>` → 合并三份为 `口播雷达_备份_AI筛选_YYYY-MM-DD.json`（candidates + transcripts 双字段，内嵌逐字稿）→ 用户在工作台「⬆ 导入备份.json」覆盖导入即同步状态。
   - 状态映射：ingest→`ingested` / review→`reviewed_ok`(note 写原因) / reject→`reviewed_bad` / missing→`pending`
@@ -99,8 +102,8 @@ agent_created: true
 2. 读不到 Chrome JS 时：扫 `~/Library/Application Support/Google/Chrome/Default/Local Storage/leveldb`，值是 UTF-16LE；按 vid 窗口抽**最后一次** `status`。AppleScript 执行 JS 可能被关，不要卡死。
 3. 只处理 `reviewed_ok` 且稿 ≥150 字；`reviewed_bad` 回写账本，不搬库、不跑 ingest。
 4. 写入 `【03.参考资料】/文案参考/{主题}/`。主题按**标题语义**分拣，禁止只扫全文关键词（「智能/AI」会把财税自保误丢进 AI工具）。实习生/找工作进 **职场**，不要进商业。
-5. **马上**跑 `reference-copy-ingester`（RS 续现有最大号，近重复也分卡，校验 PASS）
-6. 回写账本 `status=ingested`；人改口后 `reviewed_bad` 可升 `ingested`。工作台需用户刷新或点「批量标已入库」（机器通常写不进 Chrome JS）
+5. **马上**跑 `radar_ai_ingest.py`（或等价搬库）回写账本，并按待出 RS 队列跑 `reference-copy-ingester`（RS 续现有最大号，近重复也分卡，校验 PASS）
+6. 账本 `status=ingested`；人改口后 `reviewed_bad` 可升 `ingested`。工作台需用户刷新或点「批量标已入库」（机器通常写不进 Chrome JS）
 7. 不再让用户先导出 JSON 再确认
 8. 过眼备注要当反面类型的：写入 `assets/default-tags.yaml` 的 `exclude`（访谈/程前朋友圈、数字人教程）。下次 `build_list` 标题命中即跳过。实习生不是反面。
 
@@ -148,29 +151,30 @@ daily：`create_time >= now - 90天`。collect 不过时间。
 引擎：`$HOME/MediaCrawler`。关键词走 `--keywords`，不要改 `config/base_config.py`。
 
 ```bash
+# daily 默认可开评论；collect 默认关。要开评论：GET_COMMENT=true
 bash ~/.workbuddy/skills/talk-script-radar/scripts/crawl_douyin.sh daily "词1,词2,词3"
+GET_COMMENT=false bash ~/.workbuddy/skills/talk-script-radar/scripts/crawl_douyin.sh collect "词1,词2,词3"
 
 python ~/.workbuddy/skills/talk-script-radar/scripts/build_list.py \
-  --mode daily --max-age-days 90 --min-likes 5000
+  --mode daily --max-age-days 90
+  # --min-likes 默认 5000，不用再手写；小红书传 1000；调试才传 0
   # 默认写出 爆款口播候选清单_YYYY-MM-DD.md
-  # collect 默认写出 爆款口播候选清单_全量_YYYY-MM-DD.md（不要和 daily 同名互盖）
-  # --min-likes：抖音 5000 / 小红书 1000（赞数门槛铁律，从源头掐低赞）
+  # collect 默认写出 爆款口播候选清单_全量_YYYY-MM-DD.md
 
-# 只转新片（账本里没有的）
-# 用户点名云端：强制 api + secrets 真 key；失败直接报，不 fallback 本地
+# 只转清单幸存者（清单已不含低赞/排除词/账本已见）
 export SILICONFLOW_API_KEY="$(cat ~/.workbuddy/secrets/siliconflow)"
-V2T_TRANSCRIBER=api bash ~/.workbuddy/skills/video-to-text/scripts/run.sh <urls...>
-# 批量：bash ~/.workbuddy/skills/video-to-text/scripts/transcribe.sh urls.txt [JOBS]
+grep -oE 'https://www.douyin.com/video/[0-9]+' 爆款口播候选清单_YYYY-MM-DD.md | sort -u > urls.txt
+bash ~/.workbuddy/skills/video-to-text/scripts/transcribe.sh urls.txt 5
 
-python ~/.workbuddy/skills/talk-script-radar/scripts/merge_inbox.py \
-  --md "./爆款口播候选清单_YYYY-MM-DD.md" \
-  --out "./雷达inbox_YYYY-MM-DD.json"
+python ~/.workbuddy/skills/talk-script-radar/scripts/radar_ai_filter.py 爆款口播候选清单_YYYY-MM-DD.md filter.json
+python ~/.workbuddy/skills/talk-script-radar/scripts/radar_ai_ingest.py filter.json 同城
+# ingest 后必须按「待出RS卡_*.md」跑 reference-copy-ingester
 ```
 
 同日多次跑会追加同一 jsonl，`build_list.py` 必须按 `aweme_id` 去重。  
 CDP 默认关。小红书默认不做。
 
-转写：用户点名云端时走 SiliconFlow SenseVoice（`V2T_TRANSCRIBER=api`）。真 key 只读 `~/.workbuddy/secrets/siliconflow`，不要用 zshrc 占位符（会 401）。云端失败**直接报**，禁止降级本地 whisper。云端大约 6–15 秒/条（下载更久）。验收仍看 `~/Downloads/douyin-transcripts/<id>.txt` 是否存在。未点名云端才用本地 whisper（1–2 分钟/条）。
+转写：纯云端 SiliconFlow SenseVoice（`V2T_TRANSCRIBER=api`）。真 key 只读 `~/.workbuddy/secrets/siliconflow`，不要用 zshrc 占位符（会 401）。云端失败**直接报**，禁止降级本地 whisper。云端大约 6–15 秒/条（下载更久）。验收看 `~/Downloads/douyin-transcripts/<id>.txt` 是否存在。
 
 ## 7. 发现层（daily）
 
@@ -185,6 +189,7 @@ WebSearch 2–4 组，问「近一个月在聊什么」，不要问今日新闻�
 | 当日 inbox | `{workspace}/雷达inbox_YYYY-MM-DD.json` |
 | 账本 | `【03.参考资料】/文案参考/雷达清单/seen-ledger.json` |
 | 有效稿 | `【03.参考资料】/文案参考/{主题}/` |
+| 待出 RS 队列 | `【03.参考资料】/文案参考/雷达清单/待出RS卡_{主题}_{日期}.md` |
 | RS 卡 | `【06.知识库】/skeletons/source-cards/` |
 | 工作台 | 工作区 + `【05.我的上下文】/办公工作台/` |
 
