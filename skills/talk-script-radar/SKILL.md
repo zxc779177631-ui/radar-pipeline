@@ -1,13 +1,13 @@
 ---
 name: talk-script-radar
-version: "1.7.0"
+version: "1.7.2"
 description: "爆款口播雷达 1.7：先杀再转。build_list 默认 ≥5000 赞 + 标题排除词 + 账本去重，只转幸存者。入库回写账本 ingested/excluded，并排出待出 RS 队列。触发：雷达、每日口播、定向收集、过完了。"
 agent_created: true
 ---
 
 # 爆款口播雷达
 
-> 版本：1.7.0 ｜ 更新记录见 [CHANGELOG.md](CHANGELOG.md)
+> 版本：1.7.2 ｜ 更新记录见 [CHANGELOG.md](CHANGELOG.md)
 > 首次发布：2026-08-13
 
 把「被市场验证过的口播视频」找出来，**变成写稿能抽的料**。贵步骤（下载+ASR）必须排在便宜判断之后。
@@ -21,7 +21,8 @@ agent_created: true
 
 真源只留两份：**账本（见过没有）+ 库里的稿（能不能抽）**。工作台 / 备份 JSON 不是脊柱。
 
-不是热点监控，不是选题匹配器，不是自动成稿。
+不是热点监控，不是选题匹配器，不是自动成稿。  
+商业热点（牛来 / 钟睒睒 / 企业家争议）走 **business-hotspot-radar**：只出可点链接，等人说「收集」再回到本 skill 的 collect。
 
 人审闸门：**只过已转写、且字数出界的稿。** 标题排除词在转写前就杀掉。
 
@@ -164,7 +165,9 @@ python ~/.workbuddy/skills/talk-script-radar/scripts/build_list.py \
 # 只转清单幸存者（清单已不含低赞/排除词/账本已见）
 export SILICONFLOW_API_KEY="$(cat ~/.workbuddy/secrets/siliconflow)"
 grep -oE 'https://www.douyin.com/video/[0-9]+' 爆款口播候选清单_YYYY-MM-DD.md | sort -u > urls.txt
-bash ~/.workbuddy/skills/video-to-text/scripts/transcribe.sh urls.txt 5
+bash ~/.workbuddy/skills/talk-script-radar/scripts/transcribe_robust.sh urls.txt 4 6
+# 封装：对 transcribe.sh 做自动重试 + 指数退避（默认 6 轮，遇 503 自愈）
+# 不再裸调 transcribe.sh —— 它不重试，一遇 503 就标 FAIL 跳过需人工兜底
 
 python ~/.workbuddy/skills/talk-script-radar/scripts/radar_ai_filter.py 爆款口播候选清单_YYYY-MM-DD.md filter.json
 python ~/.workbuddy/skills/talk-script-radar/scripts/radar_ai_ingest.py filter.json 同城
@@ -174,7 +177,7 @@ python ~/.workbuddy/skills/talk-script-radar/scripts/radar_ai_ingest.py filter.j
 同日多次跑会追加同一 jsonl，`build_list.py` 必须按 `aweme_id` 去重。  
 CDP 默认关。小红书默认不做。
 
-转写：纯云端 SiliconFlow SenseVoice（`V2T_TRANSCRIBER=api`）。真 key 只读 `~/.workbuddy/secrets/siliconflow`，不要用 zshrc 占位符（会 401）。云端失败**直接报**，禁止降级本地 whisper。云端大约 6–15 秒/条（下载更久）。验收看 `~/Downloads/douyin-transcripts/<id>.txt` 是否存在。
+转写：纯云端 SiliconFlow SenseVoice（`V2T_TRANSCRIBER=api`），统一经 `transcribe_robust.sh` 封装调用，自带「自动重试 + 指数退避」（默认 6 轮，遇 503 抖动自愈，不再靠人工兜底）。真 key 只读 `~/.workbuddy/secrets/siliconflow`，不要用 zshrc 占位符（会 401）。云端失败**直接报**，禁止降级本地 whisper。云端大约 6–15 秒/条（下载更久）。验收看 `~/Downloads/douyin-transcripts/<id>.txt` 是否存在且正文 >20 字（封装已内置该验收）。
 
 ## 7. 发现层（daily）
 

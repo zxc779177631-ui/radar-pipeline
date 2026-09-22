@@ -17,7 +17,7 @@ ITEM_RE = re.compile(
     r"\*\*(\d+)\.\*\*\s+\[(.*?)\]\((https?://www\.douyin\.com/video/\d+)\)"
 )
 META_RE = re.compile(
-    r"👍([\d,]+).*?💬([\d,]+).*?🔁([\d,]+).*?⭐([\d,]+).*?@([^\s·]+).*?(\d{4}-\d{2}-\d{2})?"
+    r"👍([\d,]+).*?💬([\d,]+).*?🔁([\d,]+).*?⭐([\d,]+).*?@([^\s·]+)\s*·\s*(\d{4}-\d{2}-\d{2})?"
 )
 MIN_CHARS = 150
 
@@ -38,6 +38,9 @@ def grade_of(liked: int) -> str:
 
 
 def parse_markdown(md: str) -> list[dict]:
+    # 归一化抖音标题偶发的行分隔符（U+2028/U+2029），否则 splitlines 会把一条
+    # 「**[..](url)」拆成两行，导致该条目整条漏解析（8-25 实战：携程片因此漏 1 条）。
+    md = md.replace("\u2028", " ").replace("\u2029", " ")
     lines = md.splitlines()
     items: list[dict] = []
     cur = None

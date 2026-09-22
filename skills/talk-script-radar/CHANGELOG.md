@@ -2,6 +2,20 @@
 
 > 每次修改必须：更新本文件 + 提升 SKILL.md 的 version。
 
+## [1.7.2] 2026-09-22 · 分叉合并 + GitHub 备份补齐
+
+三份副本此前**双向分叉**，本版合并为单线，并把 GitHub 备份从 8-15 的 1.6.0 快照补到当前：
+
+- 合入 1.7.1：§0 商业热点分流、`transcribe_robust.sh`（自动重试 + 指数退避）
+- 合入 9-03 排除词：`default-tags.yaml` 新增 P1 数字人话术 / P2 同行卖课引流 / P4 贷款理财 / P6 剧情整蛊搞笑
+- 合入 8-25 修复：`merge_inbox.py` 归一化 U+2028/U+2029，修抖音标题换行导致整条漏解析
+- 保留 repo 侧更新的小红书链路：`build_list.py` / `radar_ai_filter.py` / `radar_ai_ingest.py` 平台感知（抖音 5000 / 小红书 1000）+ `crawl_xhs.sh` / `transcribe_xhs_*.sh|py`
+- 教训：同一 skill 存在 `radar-pipeline/skills`、Obsidian 库 `skills/`、`~/.workbuddy/skills` 三份副本，改完必须同步，否则分叉
+
+## [1.7.1] 2026-08-20 · 商业热点分流
+
+- §0 标明：牛来/钟睒睒/企业家争议走 `business-hotspot-radar`（只出链接），等人说「收集」再回本 skill collect。本 skill 仍不是热点监控。
+
 ## [1.7.0] 2026-08-15 · 第一性收口：先杀再转 + 入库回写账本
 
 - `build_list.py --min-likes` 默认改为 **5000**（传 0 才关闭），低赞不再靠人记得加参数
